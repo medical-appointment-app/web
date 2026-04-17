@@ -148,41 +148,56 @@ export default function AppointmentsPage() {
       )}
 
       {/* ── Step 1: Choose a slot ───────────────────────────────────────── */}
-      {current === 1 && (
-        <Card
-          title={`Available slots on ${selectedDate?.format('MMMM D, YYYY')}`}
-          extra={
-            <Button size="small" onClick={() => setCurrent(0)}>
-              ← Change date
-            </Button>
-          }
-        >
-          {slotsLoading ? (
-            <Spin />
-          ) : slots.length === 0 ? (
-            <Alert type="info" message="No slots available on this day. Please try another date." />
-          ) : (
-            <List
-              grid={{ gutter: 12, xs: 2, sm: 3, md: 4 }}
-              dataSource={slots}
-              renderItem={(slot) => (
-                <List.Item>
-                  <Button
-                    block
-                    onClick={() => handleReserve(slot)}
-                    style={{ height: 56 }}
-                  >
-                    <div style={{ lineHeight: 1.4 }}>
-                      <div style={{ fontWeight: 600 }}>{slot.time.slice(0, 5)}</div>
-                      <div style={{ fontSize: 11, color: '#888' }}>{slot.durationMinutes} min</div>
-                    </div>
-                  </Button>
-                </List.Item>
-              )}
-            />
-          )}
-        </Card>
-      )}
+      {current === 1 && (() => {
+        const now = dayjs();
+        const isToday = selectedDate?.isSame(now, 'day') ?? false;
+        const visibleSlots = isToday
+          ? slots.filter((slot) => dayjs(`${slot.date}T${slot.time}`).isAfter(now))
+          : slots;
+
+        return (
+          <Card
+            title={`Available slots on ${selectedDate?.format('MMMM D, YYYY')}`}
+            extra={
+              <Button size="small" onClick={() => setCurrent(0)}>
+                ← Change date
+              </Button>
+            }
+          >
+            {slotsLoading ? (
+              <Spin />
+            ) : visibleSlots.length === 0 ? (
+              <Alert
+                type="info"
+                message={
+                  isToday && slots.length > 0
+                    ? 'No more slots available today. Please try another date.'
+                    : 'No slots available on this day. Please try another date.'
+                }
+              />
+            ) : (
+              <List
+                grid={{ gutter: 12, xs: 2, sm: 3, md: 4 }}
+                dataSource={visibleSlots}
+                renderItem={(slot) => (
+                  <List.Item>
+                    <Button
+                      block
+                      onClick={() => handleReserve(slot)}
+                      style={{ height: 56 }}
+                    >
+                      <div style={{ lineHeight: 1.4 }}>
+                        <div style={{ fontWeight: 600 }}>{slot.time.slice(0, 5)}</div>
+                        <div style={{ fontSize: 11, color: '#888' }}>{slot.durationMinutes} min</div>
+                      </div>
+                    </Button>
+                  </List.Item>
+                )}
+              />
+            )}
+          </Card>
+        );
+      })()}
 
       {/* ── Step 2: Confirm ─────────────────────────────────────────────── */}
       {current === 2 && reserved && (
