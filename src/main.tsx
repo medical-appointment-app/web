@@ -2,10 +2,13 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ConfigProvider } from 'antd';
 import App from './App';
+import { LocaleProvider, useLocale } from './i18n/LocaleContext';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+function ThemedApp() {
+  const { antdLocale } = useLocale();
+  return (
     <ConfigProvider
+      locale={antdLocale}
       theme={{
         token: {
           colorPrimary: '#1677ff',
@@ -15,5 +18,13 @@ createRoot(document.getElementById('root')!).render(
     >
       <App />
     </ConfigProvider>
+  );
+}
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <LocaleProvider>
+      <ThemedApp />
+    </LocaleProvider>
   </StrictMode>,
 );

@@ -8,14 +8,14 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { appointmentsApi } from '../api/appointments';
 import { doctorApi } from '../api/doctor';
 import LockCountdown from '../components/LockCountdown';
+import { useLocale } from '../i18n/LocaleContext';
 import type { AppointmentResponse, AvailableSlotResponse } from '../types';
 
 const { Title, Text } = Typography;
 const DOCTOR_ID_PLACEHOLDER = '1'; // Replace with real doctor ID from /api/doctor
 
-const STEPS = ['Pick a date', 'Choose a slot', 'Confirm'];
-
 export default function AppointmentsPage() {
+  const { t } = useLocale();
   const [current, setCurrent] = useState(0);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [slots, setSlots] = useState<AvailableSlotResponse[]>([]);
@@ -23,6 +23,12 @@ export default function AppointmentsPage() {
   const [reserved, setReserved] = useState<AppointmentResponse | null>(null);
   const [confirmed, setConfirmed] = useState<AppointmentResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const steps = [
+    t('appt.step.pickDate'),
+    t('appt.step.pickSlot'),
+    t('appt.step.confirm'),
+  ];
 
   // ── Step 1 → Step 2: load slots for chosen date ───────────────────────────
   const handleDateConfirm = async () => {
@@ -70,7 +76,7 @@ export default function AppointmentsPage() {
     try {
       const appointment = await appointmentsApi.confirm(reserved.id);
       setConfirmed(appointment);
-      message.success('Appointment confirmed!');
+      message.success(t('appt.confirm.success'));
     } catch (err: unknown) {
       setError((err as Error).message);
     }
@@ -80,8 +86,8 @@ export default function AppointmentsPage() {
   const handleLockExpired = useCallback(() => {
     setReserved(null);
     setCurrent(1);
-    setError('Your hold expired. Please choose a slot again.');
-  }, []);
+    setError(t('appt.lockExpired'));
+  }, [t]);
 
   // ── Completed state ───────────────────────────────────────────────────────
   if (confirmed) {
@@ -89,11 +95,14 @@ export default function AppointmentsPage() {
       <Result
         status="success"
         icon={<CheckCircleOutlined />}
-        title="Appointment Confirmed!"
-        subTitle={`Scheduled for ${dayjs(confirmed.scheduledAt).format('dddd, MMMM D YYYY [at] HH:mm')} · ${confirmed.durationMinutes} min`}
+        title={t('appt.result.title')}
+        subTitle={t('appt.result.subtitle', {
+          when: dayjs(confirmed.scheduledAt).format(t('date.dayFormat')),
+          minutes: confirmed.durationMinutes ?? 0,
+        })}
         extra={
           <Button type="primary" onClick={() => window.location.replace('/my-appointments')}>
-            View My Appointments
+            {t('appt.result.viewMine')}
           </Button>
         }
       />
@@ -102,11 +111,11 @@ export default function AppointmentsPage() {
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto' }}>
-      <Title level={3}>Book an Appointment</Title>
+      <Title level={3}>{t('appt.title')}</Title>
 
       <Steps
         current={current}
-        items={STEPS.map((title) => ({ title }))}
+        items={steps.map((title) => ({ title }))}
         style={{ marginBottom: 40 }}
       />
 
@@ -124,7 +133,7 @@ export default function AppointmentsPage() {
       {current === 0 && (
         <Card>
           <Space direction="vertical" size="large" style={{ width: '100%' }}>
-            <Text>Select the date you'd like to visit.</Text>
+            <Text>{t('appt.pickDate.hint')}</Text>
             <DatePicker
               size="large"
               style={{ width: '100%' }}
@@ -141,7 +150,7 @@ export default function AppointmentsPage() {
               onClick={handleDateConfirm}
               block
             >
-              See Available Slots
+              {t('appt.pickDate.cta')}
             </Button>
           </Space>
         </Card>
@@ -157,10 +166,12 @@ export default function AppointmentsPage() {
 
         return (
           <Card
-            title={`Available slots on ${selectedDate?.format('MMMM D, YYYY')}`}
+            title={t('appt.slots.title', {
+              date: selectedDate?.format(t('date.longFormat')) ?? '',
+            })}
             extra={
               <Button size="small" onClick={() => setCurrent(0)}>
-                ← Change date
+                {t('appt.slots.changeDate')}
               </Button>
             }
           >
@@ -171,8 +182,8 @@ export default function AppointmentsPage() {
                 type="info"
                 message={
                   isToday && slots.length > 0
-                    ? 'No more slots available today. Please try another date.'
-                    : 'No slots available on this day. Please try another date.'
+                    ? t('appt.slots.emptyToday')
+                    : t('appt.slots.emptyDay')
                 }
               />
             ) : (
@@ -188,7 +199,9 @@ export default function AppointmentsPage() {
                     >
                       <div style={{ lineHeight: 1.4 }}>
                         <div style={{ fontWeight: 600 }}>{slot.time.slice(0, 5)}</div>
-                        <div style={{ fontSize: 11, color: '#888' }}>{slot.durationMinutes} min</div>
+                        <div style={{ fontSize: 11, color: '#888' }}>
+                          {t('appt.slots.minutes', { minutes: slot.durationMinutes })}
+                        </div>
                       </div>
                     </Button>
                   </List.Item>
@@ -211,21 +224,21 @@ export default function AppointmentsPage() {
             )}
 
             <div>
-              <Text type="secondary">Date &amp; time</Text>
+              <Text type="secondary">{t('appt.confirm.dateTime')}</Text>
               <div style={{ fontSize: 20, fontWeight: 600 }}>
-                {dayjs(reserved.scheduledAt).format('dddd, MMMM D YYYY [at] HH:mm')}
+                {dayjs(reserved.scheduledAt).format(t('date.dayFormat'))}
               </div>
             </div>
 
             <div>
-              <Text type="secondary">Duration</Text>
-              <div>{reserved.durationMinutes} minutes</div>
+              <Text type="secondary">{t('appt.confirm.duration')}</Text>
+              <div>{t('appt.confirm.durationValue', { minutes: reserved.durationMinutes ?? 0 })}</div>
             </div>
 
             <Space>
-              <Button onClick={() => setCurrent(1)}>← Back</Button>
+              <Button onClick={() => setCurrent(1)}>{t('appt.confirm.back')}</Button>
               <Button type="primary" size="large" onClick={handleConfirm}>
-                Confirm Appointment
+                {t('appt.confirm.cta')}
               </Button>
             </Space>
           </Space>

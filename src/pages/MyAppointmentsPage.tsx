@@ -5,6 +5,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { appointmentsApi } from '../api/appointments';
+import { useLocale } from '../i18n/LocaleContext';
 import type { AppointmentResponse, AppointmentStatus } from '../types';
 
 const { Title } = Typography;
@@ -17,7 +18,10 @@ const STATUS_COLOR: Record<AppointmentStatus, string> = {
   COMPLETED: 'default',
 };
 
+const STATUSES: AppointmentStatus[] = ['LOCKED', 'PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED'];
+
 export default function MyAppointmentsPage() {
+  const { t } = useLocale();
   const [appointments, setAppointments] = useState<AppointmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,60 +40,62 @@ export default function MyAppointmentsPage() {
   const handleCancel = async (id: number) => {
     try {
       await appointmentsApi.cancel(id);
-      message.success('Appointment cancelled.');
+      message.success(t('mine.cancel.success'));
       load();
     } catch (err: unknown) {
       message.error((err as Error).message);
     }
   };
 
+  const statusLabel = (status: AppointmentStatus) =>
+    t(`status.${status}` as const);
+
   const columns: ColumnsType<AppointmentResponse> = [
     {
-      title: 'Date & Time',
+      title: t('mine.col.dateTime'),
       dataIndex: 'scheduledAt',
       key: 'scheduledAt',
-      render: (val: string) => dayjs(val).format('MMM D, YYYY · HH:mm'),
+      render: (val: string) => dayjs(val).format(t('date.tableFormat')),
       sorter: (a, b) => a.scheduledAt.localeCompare(b.scheduledAt),
       defaultSortOrder: 'descend',
     },
     {
-      title: 'Duration',
+      title: t('mine.col.duration'),
       dataIndex: 'durationMinutes',
       key: 'durationMinutes',
-      render: (val: number | null) => (val ? `${val} min` : '—'),
+      render: (val: number | null) => (val ? t('mine.duration.minutes', { minutes: val }) : '—'),
       width: 100,
     },
     {
-      title: 'Status',
+      title: t('mine.col.status'),
       dataIndex: 'status',
       key: 'status',
       render: (status: AppointmentStatus) => (
-        <Tag color={STATUS_COLOR[status]}>{status}</Tag>
+        <Tag color={STATUS_COLOR[status]}>{statusLabel(status)}</Tag>
       ),
-      filters: (['LOCKED', 'PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED'] as AppointmentStatus[])
-        .map((s) => ({ text: s, value: s })),
+      filters: STATUSES.map((s) => ({ text: statusLabel(s), value: s })),
       onFilter: (value, record) => record.status === value,
     },
     {
-      title: 'Notes',
+      title: t('mine.col.notes'),
       dataIndex: 'notes',
       key: 'notes',
       render: (val: string | null) => val ?? '—',
       ellipsis: true,
     },
     {
-      title: 'Action',
+      title: t('mine.col.action'),
       key: 'action',
       width: 120,
       render: (_, record) =>
         record.status === 'CONFIRMED' || record.status === 'PENDING' || record.status === 'LOCKED' ? (
           <Popconfirm
-            title="Cancel this appointment?"
+            title={t('mine.cancel.confirm')}
             onConfirm={() => handleCancel(record.id)}
-            okText="Yes"
-            cancelText="No"
+            okText={t('mine.cancel.yes')}
+            cancelText={t('mine.cancel.no')}
           >
-            <Button danger size="small">Cancel</Button>
+            <Button danger size="small">{t('mine.cancel')}</Button>
           </Popconfirm>
         ) : null,
     },
@@ -100,13 +106,13 @@ export default function MyAppointmentsPage() {
 
   return (
     <div>
-      <Title level={3}>My Appointments</Title>
+      <Title level={3}>{t('mine.title')}</Title>
       <Table
         columns={columns}
         dataSource={appointments}
         rowKey="id"
         pagination={{ pageSize: 10 }}
-        locale={{ emptyText: "You don't have any appointments yet." }}
+        locale={{ emptyText: t('mine.empty') }}
       />
     </div>
   );

@@ -8,6 +8,7 @@ import {
 } from '@ant-design/icons';
 import { contentApi } from '../api/content';
 import { doctorApi } from '../api/doctor';
+import { useLocale } from '../i18n/LocaleContext';
 import type { ContentPageResponse, DoctorResponse } from '../types';
 
 const { Title, Paragraph, Text } = Typography;
@@ -143,20 +144,22 @@ const renderBody = (body: string): ReactNode => {
 };
 
 export default function HomePage() {
+  const { t, locale } = useLocale();
   const [pages, setPages] = useState<ContentPageResponse[]>([]);
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([contentApi.getAll(), doctorApi.get()])
+    setLoading(true);
+    Promise.all([contentApi.getAll(locale), doctorApi.get()])
       .then(([contentPages, doctorInfo]) => {
         setPages(contentPages);
         setDoctor(doctorInfo);
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [locale]);
 
   if (loading) return <Skeleton active paragraph={{ rows: 6 }} />;
   if (error) return <Alert type="error" message={error} />;
@@ -170,7 +173,7 @@ export default function HomePage() {
           </Title>
           <Paragraph type="secondary" style={{ margin: 0 }}>
             {doctor.email}
-            {doctor.slotDurationMinutes && ` · ${doctor.slotDurationMinutes}-minute appointments`}
+            {doctor.slotDurationMinutes && ` \u00b7 ${t('home.doctor.slotSuffix', { minutes: doctor.slotDurationMinutes })}`}
           </Paragraph>
         </Card>
       )}
@@ -183,7 +186,7 @@ export default function HomePage() {
         >
           <Space size={[8, 8]} wrap>
             <Text type="secondary" style={{ marginRight: 4 }}>
-              Jump to:
+              {t('home.jumpTo')}
             </Text>
             {pages.map((page) => {
               const { icon, color } = getTitleDecoration(page.title);
@@ -228,7 +231,7 @@ export default function HomePage() {
         })}
         {pages.length === 0 && (
           <Col span={24}>
-            <Paragraph type="secondary">No content pages yet.</Paragraph>
+            <Paragraph type="secondary">{t('home.empty')}</Paragraph>
           </Col>
         )}
       </Row>

@@ -4,12 +4,14 @@ import {
   Pagination, Select, Space,
 } from 'antd';
 import { catalogApi } from '../api/catalog';
+import { useLocale } from '../i18n/LocaleContext';
 import type { CatalogItemResponse, PagedResponse } from '../types';
 
 const { Title, Text } = Typography;
 const PAGE_SIZE = 12;
 
 export default function CatalogPage() {
+  const { t } = useLocale();
   const [result, setResult] = useState<PagedResponse<CatalogItemResponse> | null>(null);
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(0);
@@ -35,11 +37,11 @@ export default function CatalogPage() {
   return (
     <div>
       <Space style={{ marginBottom: 24 }} wrap>
-        <Title level={3} style={{ margin: 0 }}>Services &amp; Products</Title>
+        <Title level={3} style={{ margin: 0 }}>{t('catalog.title')}</Title>
         <Select
           allowClear
-          placeholder="Filter by category"
-          style={{ width: 200 }}
+          placeholder={t('catalog.filter')}
+          style={{ width: 220 }}
           value={category}
           onChange={(val) => { setCategory(val); setPage(0); }}
           options={categories.map((c) => ({ value: c, label: c }))}
@@ -65,7 +67,7 @@ export default function CatalogPage() {
                     ${Number(item.price).toFixed(2)}
                   </Text>
                   {!item.available && (
-                    <Tag color="red" style={{ marginLeft: 8 }}>Unavailable</Tag>
+                    <Tag color="red" style={{ marginLeft: 8 }}>{t('catalog.unavailable')}</Tag>
                   )}
                 </Card>
               </Col>
