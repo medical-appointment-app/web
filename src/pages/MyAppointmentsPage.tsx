@@ -1,56 +1,81 @@
-import { useEffect, useState } from 'react';
-import {
-  Table, Tag, Button, Alert, Skeleton, Typography, Popconfirm, message,
-} from 'antd';
+import { Button, Popconfirm, Table, Tag, Typography, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { appointmentsApi } from '../api/appointments';
 import { useLocale } from '../i18n/LocaleContext';
+import { useAsyncData } from '../hooks/useAsyncData';
+import AsyncState from '../components/AsyncState';
 import type { AppointmentResponse, AppointmentStatus } from '../types';
 
 const { Title } = Typography;
 
 const STATUS_COLOR: Record<AppointmentStatus, string> = {
-  LOCKED:    'orange',
-  PENDING:   'blue',
+  LOCKED: 'orange',
+  PENDING: 'blue',
   CONFIRMED: 'green',
   CANCELLED: 'red',
   COMPLETED: 'default',
 };
 
-const STATUSES: AppointmentStatus[] = ['LOCKED', 'PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED'];
+const STATUSES: AppointmentStatus[] = [
+  'LOCKED', 'PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED',
+];
+
+const CANCELLABLE_STATUSES: ReadonlySet<AppointmentStatus> = new Set([
+  'LOCKED', 'PENDING', 'CONFIRMED',
+]);
+
+const isCancellable = (status: AppointmentStatus): boolean =>
+  CANCELLABLE_STATUSES.has(status);
 
 export default function MyAppointmentsPage() {
   const { t } = useLocale();
-  const [appointments, setAppointments] = useState<AppointmentResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = () => {
-    setLoading(true);
-    appointmentsApi
-      .getMyAppointments()
-      .then(setAppointments)
-      .catch((err: Error) => setError(err.message))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(load, []);
+  const { data, loading, error, reload } = useAsyncData<AppointmentResponse[]>(
+    () => appointmentsApi.getMyAppointments(),
+    [],
+  );
 
   const handleCancel = async (id: number) => {
     try {
       await appointmentsApi.cancel(id);
       message.success(t('mine.cancel.success'));
-      load();
-    } catch (err: unknown) {
+      reload();
+    } catch (err) {
       message.error((err as Error).message);
     }
   };
 
-  const statusLabel = (status: AppointmentStatus) =>
-    t(`status.${status}` as const);
+  const columns = useAppointmentColumns({ onCancel: handleCancel });
 
-  const columns: ColumnsType<AppointmentResponse> = [
+  return (
+    <div>
+      <Title level={3}>{t('mine.title')}</Title>
+      <AsyncState loading={loading} error={error} skeletonRows={5}>
+        <Table
+          columns={columns}
+          dataSource={data ?? []}
+          rowKey="id"
+          pagination={{ pageSize: 10 }}
+          locale={{ emptyText: t('mine.empty') }}
+        />
+      </AsyncState>
+    </div>
+  );
+}
+
+// ── Columns ──────────────────────────────────────────────────────────────────
+
+interface UseAppointmentColumnsProps {
+  onCancel: (id: number) => void;
+}
+
+function useAppointmentColumns({
+  onCancel,
+}: UseAppointmentColumnsProps): ColumnsType<AppointmentResponse> {
+  const { t } = useLocale();
+  const statusLabel = (status: AppointmentStatus) => t(`status.${status}` as const);
+
+  return [
     {
       title: t('mine.col.dateTime'),
       dataIndex: 'scheduledAt',
@@ -63,7 +88,8 @@ export default function MyAppointmentsPage() {
       title: t('mine.col.duration'),
       dataIndex: 'durationMinutes',
       key: 'durationMinutes',
-      render: (val: number | null) => (val ? t('mine.duration.minutes', { minutes: val }) : '—'),
+      render: (val: number | null) =>
+        val ? t('mine.duration.minutes', { minutes: val }) : '—',
       width: 100,
     },
     {
@@ -88,32 +114,29 @@ export default function MyAppointmentsPage() {
       key: 'action',
       width: 120,
       render: (_, record) =>
-        record.status === 'CONFIRMED' || record.status === 'PENDING' || record.status === 'LOCKED' ? (
-          <Popconfirm
-            title={t('mine.cancel.confirm')}
-            onConfirm={() => handleCancel(record.id)}
-            okText={t('mine.cancel.yes')}
-            cancelText={t('mine.cancel.no')}
-          >
-            <Button danger size="small">{t('mine.cancel')}</Button>
-          </Popconfirm>
+        isCancellable(record.status) ? (
+          <CancelButton onConfirm={() => onCancel(record.id)} />
         ) : null,
     },
   ];
+}
 
-  if (loading) return <Skeleton active paragraph={{ rows: 5 }} />;
-  if (error) return <Alert type="error" message={error} />;
+// ── Sub-components ───────────────────────────────────────────────────────────
 
+interface CancelButtonProps {
+  onConfirm: () => void;
+}
+
+function CancelButton({ onConfirm }: CancelButtonProps) {
+  const { t } = useLocale();
   return (
-    <div>
-      <Title level={3}>{t('mine.title')}</Title>
-      <Table
-        columns={columns}
-        dataSource={appointments}
-        rowKey="id"
-        pagination={{ pageSize: 10 }}
-        locale={{ emptyText: t('mine.empty') }}
-      />
-    </div>
+    <Popconfirm
+      title={t('mine.cancel.confirm')}
+      onConfirm={onConfirm}
+      okText={t('mine.cancel.yes')}
+      cancelText={t('mine.cancel.no')}
+    >
+      <Button danger size="small">{t('mine.cancel')}</Button>
+    </Popconfirm>
   );
 }

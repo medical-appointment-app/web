@@ -5,12 +5,18 @@ const client = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach the session token from localStorage to every request.
-// The token is stored under 'sessionToken' after login via the external gateway.
+// Attach the session token and the current UI locale to every request.
+// - Session token is stored under 'sessionToken' after login via the external gateway.
+// - Locale is stored under 'appLocale' by LocaleContext; forwarded as the
+//   standard Accept-Language header so the backend can localize its responses.
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('sessionToken');
   if (token) {
     config.headers['X-Session-Token'] = token;
+  }
+  const locale = localStorage.getItem('appLocale');
+  if (locale) {
+    config.headers['Accept-Language'] = locale;
   }
   return config;
 });

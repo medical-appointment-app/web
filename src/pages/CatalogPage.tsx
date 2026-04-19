@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
-import {
-  Card, Col, Row, Skeleton, Alert, Tag, Typography,
-  Pagination, Select, Space,
-} from 'antd';
+import { useMemo, useState } from 'react';
+import { Card, Col, Pagination, Row, Select, Space, Tag, Typography } from 'antd';
 import { catalogApi } from '../api/catalog';
 import { useLocale } from '../i18n/LocaleContext';
+import { useAsyncData } from '../hooks/useAsyncData';
+import AsyncState from '../components/AsyncState';
 import type { CatalogItemResponse, PagedResponse } from '../types';
 
 const { Title, Text } = Typography;
@@ -12,27 +11,23 @@ const PAGE_SIZE = 12;
 
 export default function CatalogPage() {
   const { t } = useLocale();
-  const [result, setResult] = useState<PagedResponse<CatalogItemResponse> | null>(null);
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setLoading(true);
-    catalogApi
-      .getItems({ category, page, size: PAGE_SIZE })
-      .then(setResult)
-      .catch((err: Error) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [category, page]);
+  const { data, loading, error } = useAsyncData<PagedResponse<CatalogItemResponse>>(
+    () => catalogApi.getItems({ category, page, size: PAGE_SIZE }),
+    [category, page],
+  );
 
-  // Derive category list from loaded items for the filter dropdown.
-  const categories = result
-    ? [...new Set(result.content.map((i) => i.category))].sort()
-    : [];
+  const categories = useMemo(
+    () => (data ? [...new Set(data.content.map((i) => i.category))].sort() : []),
+    [data],
+  );
 
-  if (error) return <Alert type="error" message={error} />;
+  const handleCategoryChange = (next: string | undefined) => {
+    setCategory(next);
+    setPage(0);
+  };
 
   return (
     <div>
@@ -43,50 +38,75 @@ export default function CatalogPage() {
           placeholder={t('catalog.filter')}
           style={{ width: 220 }}
           value={category}
-          onChange={(val) => { setCategory(val); setPage(0); }}
+          onChange={handleCategoryChange}
           options={categories.map((c) => ({ value: c, label: c }))}
         />
       </Space>
 
-      {loading ? (
-        <Skeleton active paragraph={{ rows: 4 }} />
-      ) : (
-        <>
-          <Row gutter={[24, 24]}>
-            {result?.content.map((item) => (
-              <Col xs={24} sm={12} lg={8} key={item.id}>
-                <Card
-                  title={item.name}
-                  extra={<Tag color="blue">{item.category}</Tag>}
-                  bordered
-                >
-                  {item.description && (
-                    <Typography.Paragraph type="secondary">{item.description}</Typography.Paragraph>
-                  )}
-                  <Text strong style={{ fontSize: 18 }}>
-                    ${Number(item.price).toFixed(2)}
-                  </Text>
-                  {!item.available && (
-                    <Tag color="red" style={{ marginLeft: 8 }}>{t('catalog.unavailable')}</Tag>
-                  )}
-                </Card>
-              </Col>
-            ))}
-          </Row>
+      <AsyncState loading={loading} error={error}>
+        {data && (
+          <>
+            <Row gutter={[24, 24]}>
+              {data.content.map((item) => (
+                <Col xs={24} sm={12} lg={8} key={item.id}>
+                  <CatalogItemCard item={item} />
+                </Col>
+              ))}
+            </Row>
 
-          {result && result.totalPages > 1 && (
-            <div style={{ textAlign: 'center', marginTop: 32 }}>
-              <Pagination
-                current={page + 1}
-                pageSize={PAGE_SIZE}
-                total={result.totalElements}
-                onChange={(p) => setPage(p - 1)}
-                showSizeChanger={false}
+            {data.totalPages > 1 && (
+              <CatalogPagination
+                current={page}
+                total={data.totalElements}
+                onChange={setPage}
               />
-            </div>
-          )}
-        </>
+            )}
+          </>
+        )}
+      </AsyncState>
+    </div>
+  );
+}
+
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+interface CatalogItemCardProps {
+  item: CatalogItemResponse;
+}
+
+function CatalogItemCard({ item }: CatalogItemCardProps) {
+  const { t } = useLocale();
+  return (
+    <Card title={item.name} extra={<Tag color="blue">{item.category}</Tag>} bordered>
+      {item.description && (
+        <Typography.Paragraph type="secondary">{item.description}</Typography.Paragraph>
       )}
+      <Text strong style={{ fontSize: 18 }}>
+        ${Number(item.price).toFixed(2)}
+      </Text>
+      {!item.available && (
+        <Tag color="red" style={{ marginLeft: 8 }}>{t('catalog.unavailable')}</Tag>
+      )}
+    </Card>
+  );
+}
+
+interface CatalogPaginationProps {
+  current: number;
+  total: number;
+  onChange: (page: number) => void;
+}
+
+function CatalogPagination({ current, total, onChange }: CatalogPaginationProps) {
+  return (
+    <div style={{ textAlign: 'center', marginTop: 32 }}>
+      <Pagination
+        current={current + 1}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onChange={(p) => onChange(p - 1)}
+        showSizeChanger={false}
+      />
     </div>
   );
 }
