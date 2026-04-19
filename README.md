@@ -355,15 +355,6 @@ theme={{ token: { colorPrimary: '#1677ff', borderRadius: 8 } }}
 Ad-hoc styling is kept inline to avoid CSS sprawl; for larger visual changes
 prefer extending the Ant Design theme tokens over adding global CSS.
 
-### Path Alias
-
-`tsconfig.app.json` defines `"@/*": ["src/*"]`. Prefer this alias for deep
-imports to keep refactors cheap:
-
-```ts
-import { useLocale } from '@/i18n/LocaleContext';
-```
-
 ### Coding Conventions
 
 - **camelCase** naming for variables, functions and hooks.
